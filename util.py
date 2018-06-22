@@ -1,12 +1,12 @@
 import re
 import numpy as np
+import codecs
 def load_data(pos_data_dir, neg_data_dir):
-    #file read
-    pos_text = open(pos_data_dir, "r").readlines()
-    neg_text = open(neg_data_dir, "r").readlines()
+    pos_obj = open(pos_data_dir, "rt", encoding="UTF8")
+    neg_obj = open(neg_data_dir, "rt", encoding="UTF8")
+    pos_text = list(pos_obj.readlines())
+    neg_text = list(neg_obj.readlines())
 
-    # pos -> label = [0, 1] 
-    # neg -> label = [1, 0]
     pos_label = []
     neg_label = []
 
