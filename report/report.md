@@ -20,7 +20,6 @@ Sentence classification model을 구현하고 성능을 평가하여 기존 연�
 * yoonkim - CNN_sentence[^3]
 
 * dennybritz - cnn-text_classification-tf[^4]
-  
 
 기존 연구는 문장의 단어들을 table lookup을 이용해 임베딩한 후 CNN 모델의 input으로 사용하였으나 본 과제에서는 CNN으로 Character-level word embeding을 수행한다. 그리고 기존 연구 모델에 더해서 RNN 기반 모델을 설계하여 기존 연구와 두 개의 모델간의 성능을 비교한다.
 
@@ -85,11 +84,16 @@ def preprocess():
 
 <img src="D:\git\nlp-sentence-classify\report\rnn_sc.png" width="500" />
 
-Character-level embeding 결과 벡터를 Bi-directional LSTM의 input으로 활용하여 그  output으로 분류를 수행한다. LSTM의 output은 3차원 텐서([pos, neg, neut] ) 이며, 가장 값이 큰 요소를 결과로서 출력한다.
+Character-level embeding 결과 벡터를 Bi-directional LSTM의 input으로 활용하여 그  output으로 분류를 수행한다. LSTM의 output은 3차원 Vector([neut, neg, pos] ) 이며, 가장 값이 큰 요소를 결과로서 출력한다.
 
 ## Hyper Parameters
 
-
+* embedding size = 128
+* rnn hidden size = 100
+* cnn filter windows = 3, 4, 5
+* number of  cnn filters = 128
+* cross validation ratio = 0.1
+* dropout rate = 0.5
 
 # 실험 설계
 
