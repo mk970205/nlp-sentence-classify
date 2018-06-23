@@ -16,3 +16,16 @@ tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+
+#preprocessing parameters
+tf.flags.DEFINE_float("CV_percentage", .1, "Percentage of the testing data to use for cross validation")
+tf.flags.DEFINE_string("pos_data", "./data/MR/rt-polarity.pos")
+tf.flags.DEFINE_string("neg_data", "./data/MR/rt-polarity.neg")
+
+#training Session parameters
+tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
+tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+
+#eval parameters
+tf.flags.DEFINE_string("checkpoint_dir", "", "Checkpoint directory from training run")
+tf.flags.DEFINE_boolean("eval_train", False, "Evaluate on all training data")
