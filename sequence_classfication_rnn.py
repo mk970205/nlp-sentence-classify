@@ -81,7 +81,7 @@ with tf.Session() as sess:
     
     #한 문장씩 rnn 모델에 넣어줌
     while True:
-        line=f.readline();
+        line=f.readline()
         if not line: break
         
         x_input_word=[[[0 for col in range(input_dim)] for row in range(max_seq_length)] for depth in range(batch_size)] #(batch size, max_seq_length(문장 길이가 짧으면 패딩),input_dim)
