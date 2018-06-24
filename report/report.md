@@ -78,7 +78,41 @@ def preprocess():
 
 ![](D:\git\nlp-sentence-classify\report\cnn_sc.png)
 
-첫 번째 레이어는 단어를 저차원 벡터로 임베딩한다. 다음 레이어는 여러 사이즈의 필터로, 임베딩 된 단어 벡터에 대해 concatenation 을 수행한다. 다음에는 그것을 맥스 풀링하고, 드롭아웃을 적용하고, 소프트맥스 레이어의 결과로 분류를 수행한다.
+첫 번째 레이어는 단어를 저차원 벡터로 임베딩한다. 다음 레이어는 여러 사이즈의 필터로, 임베딩 된 단어 벡터에 대해 concatenation 을 수행한다. 다음에는 그것을 max pooling 하고, dropout을 적용하고, softmax layer의 결과로 분류를 수행한다.
+
+#### Convolution and Max-Pooling Layers
+
+크기가 다른 필터를 반복적으로 사용하여 vector를 생성하고 이를 하나의 큰 featur vector로 합친다.
+
+```
+
+```
+
+`W`는 filter 행렬이고 `h`는 output에 ReLU 함수를 적용한 결과이다. 모든 vector는 `[batch_size, num_filters_total]` 형태를 갖는 feature vector로 결합된다.
+
+#### Dropout Layer
+
+```
+
+```
+
+드롭아웃은 오버피팅을 방지하는 가장 유명한 방법이다. dropout rate를 학습 중에는 0.5, 평가 중에는 1로 비활성화 한다.
+
+#### Scores and Predictions
+
+```
+
+```
+
+max pooling 으로 featur vector를 사용하여 행렬곱을 수행하고 가장 높은 점수로 분류를 선택하는 예측을 수행한다.
+
+#### Loss and Accuracy
+
+```
+
+```
+
+손실함수는 cross-entropy loss를 사용한다.
 
 ### RNN for Sentence Classification
 
@@ -163,6 +197,10 @@ Character-level embeding 결과 벡터를 Bi-directional LSTM의 input으로 활
 
    * ROC Curve의 밑면적을 계산한 값.
    * Fallout 대비 Recall값이 클 수록 AUC가 1에 가까운 값이며 우수한 모형이다.
+
+## 평가
+
+10% 비율로 테스트 데이터 셋과 학습 데이터 셋을 나누어 cross-validation 으로 모델을 평가한다.  타 모델들에 MR 데이터 셋을 이용하여 평가한 Accuracy와 우리 모델의 Accuracy를 비교해 본다. 타 모델의 Accuracy는 CNN for Sentence Classification 논문[^1]의 Table2를 참고하였다.
 
 # 실험 결과 및 분석
 
