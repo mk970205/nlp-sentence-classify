@@ -72,6 +72,35 @@ def preprocess():
 
 단어의 모든 문자들을 CNN 레이어의 input으로 넣고 output을 맥스풀링한 결과를 취한다.
 
+#### 전처리
+
+```python
+W = tf.random_uniform([vocab_size, embedding_size_char],-1.0,1.0)
+char_ids = tf.placeholder(tf.int32, shape=[None, None, None]) #(batch size, max length of sentence, max length of word)
+char_embeddings = tf.nn.embedding_lookup(W,char_ids)
+s_charemb=tf.shape(char_embeddings)
+```
+
+단어에 포함된 문자들에 인덱스를 매긴다. 단순 lookup 테이블로 랜덤 초기화한다. 문자의 embedding size는 6, filter window는 4이다.
+
+#### CNN
+
+```python
+char_embeddings = tf.reshape(char_embeddings,shape=[s_charemb[0]*s_charemb[1], max_word_length, embedding_size_char, 1]) # (batch x sentence, max length of sentence, embeddings size, Number of layers(filters))
+
+Filter1 = tf.Variable(tf.truncated_normal(shape=[filter_width, embedding_size_char,1,1],stddev=0.1)) #(Filter_width, Embedding size, Layer Size, Number of filters)
+
+Bias1 = tf.Variable(tf.truncated_normal(shape=[1],stddev=0.1)) #(Number of filters)
+Conv1 = tf.nn.conv2d(char_embeddings, Filter1, strides=[1,1,1,1], padding='SAME') + Bias1 
+Activation1 = tf.nn.relu(Conv1)
+Pool1 = tf.nn.max_pool(Activation1, ksize=[1,max_word_length,1,1], strides=[1,max_word_length,1,1], padding='SAME')
+Pool1 = tf.squeeze(Pool1)
+
+output = tf.reshape(Pool1, shape = [-1, max_seqence_length, embedding_size_char]) #(batch size, max length of sentence, embeddings size)
+```
+
+문자들의 id로 이루어진 vector를 convolution layer에 넣고 output을 max pooling 하여 얻은 결과를 embedded vector로 사용한다.
+
 ## Classification Layer
 
 ### CNN for Sentence Classification (Yoon Kim (2014) 의 아키텍쳐)
@@ -200,7 +229,9 @@ Character-level embeding 결과 벡터를 Bi-directional LSTM의 input으로 활
 
 ## 평가
 
-10% 비율로 테스트 데이터 셋과 학습 데이터 셋을 나누어 cross-validation 으로 모델을 평가한다.  타 모델들에 MR 데이터 셋을 이용하여 평가한 Accuracy와 우리 모델의 Accuracy를 비교해 본다. 타 모델의 Accuracy는 CNN for Sentence Classification 논문[^1]의 Table2를 참고하였다.
+10% 비율로 테스트 데이터 셋과 학습 데이터 셋을 나누어 cross-validation 으로 모델을 평가한다.  타 모델들에 MR 데이터 셋을 이용하여 평가한 Accuracy와 우리 모델의 Accuracy를 비교해 본다. 타 모델의 Accuracy는 CNN for Sentence Classification 논문[^1]의 Table2를 참고한다.
+
+![](D:\git\nlp-sentence-classify\report\yoonkim_table2.PNG)
 
 # 실험 결과 및 분석
 
