@@ -7,7 +7,8 @@ import time
 import os
 import datetime
 from params import FLAGS
-from textRNN import textRNN
+from sequence_RNN import sequenceRNN
+from sequence_CNN import sequenceCNN
 def preprocess():
     print("loading data...")
     text, label = load_data(FLAGS.pos_data_dir, FLAGS.neg_data_dir)
@@ -32,14 +33,33 @@ def preprocess():
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_test)))
     return x_train, y_train, vocab_processor, x_test, y_test
 
-def train(x_train, y_train, vocab_processor, x_test, y_test):
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=FLAGS.allow_soft_placement, log_device_placement=FLAGS.log_device_placement)) as sess:
-        model_textRNN = textRNN()
+def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
+    config = tf.ConfigProto(allow_soft_placement=FLAGS.allow_soft_placement, log_device_placement=FLAGS.log_device_placement)
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+        if model == "RNN":
+            model = sequenceRNN(
+                sequence_length=x_train.shape[1],
+                vocab_processor=vocab_processor,
+                vocab_size=len(vocab_processor.vocabulary_),
+                embedding_size=FLAGS.embedding_dim,
+                hidden_size=FLAGS.lstm_hidden_size
+            )
+
+        elif model == "CNN":
+            model = sequenceCNN(
+                sequence_length=x_train.shape[1],
+                vocab_processor=vocab_processor,
+                vocab_size=len(vocab_processor.vocabulary_),
+                embedding_size=FLAGS.embedding_dim,
+                filter_sizes=list(map(int, FLAGS.cnn_filter_sizes.split(","))),
+                num_filters=FLAGS.num_filters
+            )
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         optimizer = tf.train.AdamOptimizer(1e-3)
-        grads_and_vars = optimizer.compute_gradients(model_textRNN.loss)
+        grads_and_vars = optimizer.compute_gradients(model.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
         timestamp = str(int(time.time()))
@@ -47,8 +67,8 @@ def train(x_train, y_train, vocab_processor, x_test, y_test):
         print("Writing to {}\n".format(out_dir))
 
         # Summaries for loss and accuracy
-        loss_summary = tf.summary.scalar("loss", model_textRNN.loss)
-        acc_summary = tf.summary.scalar("accuracy", model_textRNN.accuracy)
+        loss_summary = tf.summary.scalar("loss", model.loss)
+        acc_summary = tf.summary.scalar("accuracy", model.accuracy)
 
         # Train Summaries
         train_summary_op = tf.summary.merge([loss_summary, acc_summary])
@@ -77,12 +97,23 @@ def train(x_train, y_train, vocab_processor, x_test, y_test):
             """
             A single training step
             """
+            x_list = np.array(list(x_batch))
+
+            x_word_ids = []
+            for _1 in range(x_list.shape[0]):
+                ids = []
+                for _2 in range(x_list.shape[1]):
+                    word_tuple = list(sorted_vocab[x_list[_1][_2]])
+                    ids.append(word_tuple[0])
+                x_word_ids.append(ids)
+
             feed_dict = {
-                model_textRNN.input_x: x_batch,
-                model_textRNN.input_y: y_batch,
-                model_textRNN.dropout_keep_prob: FLAGS.dropout_keep_prob
+                model.input_x: x_batch,
+                model.input_x_sub: np.array(x_word_ids),
+                model.input_y: y_batch,
+                model.dropout_keep_prob: FLAGS.dropout_keep_prob 
             }
-            _, step, summaries, loss, accuracy = sess.run([train_op, global_step, train_summary_op, model_textRNN.loss, model_textRNN.accuracy], feed_dict)
+            _, step, summaries, loss, accuracy = sess.run([train_op, global_step, train_summary_op, model.loss, model.accuracy], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             train_summary_writer.add_summary(summaries, step)
@@ -91,12 +122,24 @@ def train(x_train, y_train, vocab_processor, x_test, y_test):
             """
             Evaluates model on a test set
             """
+
+            x_list = np.array(list(x_batch))
+
+            x_word_ids = []
+            for _1 in range(x_list.shape[0]):
+                ids = []
+                for _2 in range(x_list.shape[1]):
+                    word_tuple = list(sorted_vocab[x_list[_1][_2]])
+                    ids.append(word_tuple[0])
+                x_word_ids.append(ids)
+
             feed_dict = {
-                model_textRNN.input_x: x_batch,
-                model_textRNN.input_y: y_batch,
-                model_textRNN.dropout_keep_prob: 1.0
+                model.input_x: x_batch,
+                model.input_x_sub: np.array(x_word_ids),
+                model.input_y: y_batch,
+                model.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy = sess.run([global_step, test_summary_op, model_textRNN.loss, model_textRNN.accuracy], feed_dict)
+            step, summaries, loss, accuracy = sess.run([global_step, test_summary_op, model.loss, model.accuracy], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
             if writer:
@@ -118,9 +161,34 @@ def train(x_train, y_train, vocab_processor, x_test, y_test):
                 print("Saved model checkpoint to {}\n".format(path))
 
 
-def main():
+def main(argv=None):
     x_train, y_train, vocab_processor, x_test, y_test = preprocess()
     train(x_train, y_train, vocab_processor, x_test, y_test)
 
-if __name__ == '__main__':
-    tf.app.run()
+#if __name__ == '__main__':
+   # tf.app.run()
+
+x_train, y_train, vocab_processor, x_test, y_test = preprocess()
+model = sequenceRNN(
+                sequence_length=x_train.shape[1],
+                vocab_processor=vocab_processor,
+                vocab_size=len(vocab_processor.vocabulary_),
+                embedding_size=FLAGS.embedding_dim,
+                hidden_size=FLAGS.lstm_hidden_size
+            )
+batches = batch_iter(list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+vocab_dict = vocab_processor.vocabulary_._mapping
+sorted_vocab = sorted(vocab_dict.items(), key = lambda x : x[1])
+for batch in batches:
+    x_batch, y_batch = zip(*batch)
+    x_list = np.array(list(x_batch))
+    print(x_list.shape)
+    x_word_ids = []
+    for _1 in range(x_list.shape[0]):
+        ids = []
+        for _2 in range(x_list.shape[1]):
+            word_tuple = list(sorted_vocab[x_list[_1][_2]])
+            ids.append(word_tuple[0])
+        x_word_ids.append(ids)
+    print(x_word_ids)
+    break

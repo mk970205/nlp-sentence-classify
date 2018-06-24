@@ -4,7 +4,6 @@ import os
 import time
 import datetime
 from util import load_data, batch_iter
-from textRNN import textRNN
 from tensorflow.contrib import learn
 import csv
 

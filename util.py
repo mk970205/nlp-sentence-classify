@@ -26,8 +26,6 @@ def load_data(pos_data_dir, neg_data_dir):
         text[i] = clean_str(text[i])
 
     return text, label
-    
-    
 
 def clean_str(string):
     """
@@ -66,3 +64,29 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
+
+# 문서의 모든 단어가 들어 있는 리스트를 만듬(중복 제외)
+def makeDictionary(filePath):
+    dic = []
+    
+    f = open(filePath, 'r')
+    while True:
+        line = f.readline()
+        if not line: break
+        for word in line.split():
+            if word not in dic:
+                dic.append(word)
+    f.close()
+    return dic
+
+# 문서에서 가장 단어의 개수가 많은 문장을 찾은 다음 그 문장의 단어 수를 반환
+def findMaxLineLength(filePath):
+    f = open(filePath, 'r')
+    lineLen = 0
+    maxLineLen = 0
+    while True:
+        line = f.readline()
+        if not line: break
+        lineLen=len(line.split())
+        maxLineLen=max(lineLen,maxLineLen)
+    return maxLineLen
