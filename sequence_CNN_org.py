@@ -2,31 +2,16 @@ import tensorflow as tf
 import numpy as np
 
 class sequenceCNN:
-    def __init__(self, vocab_processor, vocab_size, embedding_size, sequence_length, word_length, vocab_size_char,
-                 embedding_size_char, filter_sizes, num_filters, num_classes=2, num_char_filters=1):
+    def __init__(self, vocab_processor, vocab_size, embedding_size, sequence_length, filter_sizes, num_filters, num_classes=2):
         self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, sequence_length], name="input_x")
-        self.input_x_sub = tf.placeholder(dtype=tf.int32, shape=[None, sequence_length, word_length], name="input_x_sub")
         self.input_y = tf.placeholder(dtype=tf.int32, shape=[None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(dtype=tf.float32, name="dropout_keep_prob")
 
         with tf.device('/cpu:0'), tf.name_scope("text-embedding"):
             self.W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="Word_embedding")
             self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
-
-        with tf.name_scope("char_embedding"):
-            self.W_char = tf.Variable(tf.random_uniform([vocab_size_char, embedding_size_char], -1.0, 1.0), name="Char_embedding")
-            self.embedded_chars2 = tf.nn.embedding_lookup(self.W_char, self.input_x_sub)
-            s_charemb = tf.shape(self.embedded_chars2)
-            char_embeddings = tf.reshape(self.embedded_chars2, shape=[s_charemb[0] * s_charemb[1], word_length, embedding_size_char, num_char_filters])
-            Filter1 = tf.Variable(tf.truncated_normal(shape=[4, embedding_size_char,1, num_char_filters],stddev=0.1)) #(Filter_width, Embedding size, Layer Size, Number of filters)
-            Bias1 = tf.Variable(tf.truncated_normal(shape=[num_char_filters],stddev=0.1)) #(Number of filters)
-            Conv1 = tf.nn.conv2d(char_embeddings, Filter1, strides=[1, 1, 1, 1], padding='SAME') + Bias1 
-            Activation1 = tf.nn.relu(Conv1)
-            Pool1 = tf.nn.max_pool(Activation1, ksize=[1, word_length, 1, 1], strides=[1, word_length, 1, 1], padding='SAME')
-            Pool1 = tf.squeeze(Pool1)
-            output = tf.reshape(Pool1, shape = [-1, sequence_length, embedding_size_char]) #(batch size, max length of sentence, embeddings size)
-            self.final_embed = tf.concat([self.embedded_chars, output], 2)
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+
 
         pooled_outputs = []
         for _, filter_size in enumerate(filter_sizes):

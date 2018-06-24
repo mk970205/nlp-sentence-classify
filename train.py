@@ -9,12 +9,24 @@ import datetime
 from params import FLAGS
 from sequence_RNN import sequenceRNN
 from sequence_CNN import sequenceCNN
+from itertools import chain, repeat, islice
+
+
 def preprocess():
     print("loading data...")
     text, label = load_data(FLAGS.pos_data_dir, FLAGS.neg_data_dir)
 
     #vocab
     max_doc_length = max([len(x.split(" ")) for x in text])
+
+    char_dict = []
+    for sent in text:
+        for c in sent:
+            if c not in char_dict:
+                char_dict.append(c)
+    if '' not in char_dict:
+        char_dict.append('')
+
     vocab_processor = learn.preprocessing.VocabularyProcessor(max_doc_length)
     x = np.array(list(vocab_processor.fit_transform(text)))
 
@@ -31,9 +43,9 @@ def preprocess():
 
     print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_test)))
-    return x_train, y_train, vocab_processor, x_test, y_test
+    return x_train, y_train, vocab_processor, char_dict, x_test, y_test
 
-def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
+def train(x_train, y_train, vocab_processor, char_dict, x_test, y_test, model="CNN"):
     config = tf.ConfigProto(allow_soft_placement=FLAGS.allow_soft_placement, log_device_placement=FLAGS.log_device_placement)
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
@@ -41,8 +53,11 @@ def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
             model = sequenceRNN(
                 sequence_length=x_train.shape[1],
                 vocab_processor=vocab_processor,
+                embedding_size_char=FLAGS.embedding_dim_char,
                 vocab_size=len(vocab_processor.vocabulary_),
+                vocab_size_char=len(char_dict),
                 embedding_size=FLAGS.embedding_dim,
+                word_length=FLAGS.max_word_length,
                 hidden_size=FLAGS.lstm_hidden_size
             )
 
@@ -51,8 +66,11 @@ def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
                 sequence_length=x_train.shape[1],
                 vocab_processor=vocab_processor,
                 vocab_size=len(vocab_processor.vocabulary_),
+                vocab_size_char=len(char_dict),
                 embedding_size=FLAGS.embedding_dim,
+                embedding_size_char=FLAGS.embedding_dim_char,
                 filter_sizes=list(map(int, FLAGS.cnn_filter_sizes.split(","))),
+                word_length=FLAGS.max_word_length,
                 num_filters=FLAGS.num_filters
             )
 
@@ -104,7 +122,12 @@ def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
                 ids = []
                 for _2 in range(x_list.shape[1]):
                     word_tuple = list(sorted_vocab[x_list[_1][_2]])
-                    ids.append(word_tuple[0])
+                    if word_tuple[0] != "<UNK>":
+                        char_list = list(word_tuple[0])
+                    else:
+                        char_list = []
+                    id_list = char_to_id(char_list, char_dict)
+                    ids.append(list(pad(id_list, FLAGS.max_word_length, char_dict.index(''))))
                 x_word_ids.append(ids)
 
             feed_dict = {
@@ -130,8 +153,14 @@ def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
                 ids = []
                 for _2 in range(x_list.shape[1]):
                     word_tuple = list(sorted_vocab[x_list[_1][_2]])
-                    ids.append(word_tuple[0])
+                    if word_tuple[0] != "<UNK>":
+                        char_list = list(word_tuple[0])
+                    else:
+                        char_list = []
+                    id_list = char_to_id(char_list, char_dict)
+                    ids.append(list(pad(id_list, FLAGS.max_word_length, char_dict.index(''))))
                 x_word_ids.append(ids)
+
 
             feed_dict = {
                 model.input_x: x_batch,
@@ -162,13 +191,13 @@ def train(x_train, y_train, vocab_processor, x_test, y_test, model="CNN"):
 
 
 def main(argv=None):
-    x_train, y_train, vocab_processor, x_test, y_test = preprocess()
-    train(x_train, y_train, vocab_processor, x_test, y_test)
+    x_train, y_train, vocab_processor, char_dict, x_test, y_test = preprocess()
+    train(x_train, y_train, vocab_processor, char_dict, x_test, y_test)
 
 #if __name__ == '__main__':
    # tf.app.run()
 
-x_train, y_train, vocab_processor, x_test, y_test = preprocess()
+x_train, y_train, vocab_processor, char_dict, x_test, y_test = preprocess()
 model = sequenceRNN(
                 sequence_length=x_train.shape[1],
                 vocab_processor=vocab_processor,
@@ -192,3 +221,19 @@ for batch in batches:
         x_word_ids.append(ids)
     print(x_word_ids)
     break
+
+
+def pad_infinite(iterable, padding=None):
+   return chain(iterable, repeat(padding))
+
+def pad(iterable, size, padding=None):
+   return islice(pad_infinite(iterable, padding), size)
+   
+def char_to_id(charlist, char_dict):
+    idlist = []
+    for i in range(len(charlist)):
+        char = charlist[i].lower()
+        id = char_dict.index(char)
+        idlist.append(id)
+
+    return idlist
