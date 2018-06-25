@@ -11,6 +11,21 @@ from sequence_RNN import sequenceRNN
 from sequence_CNN import sequenceCNN
 from itertools import chain, repeat, islice
 
+def pad_infinite(iterable, padding=None):
+   return chain(iterable, repeat(padding))
+
+def pad(iterable, size, padding=None):
+   return islice(pad_infinite(iterable, padding), size)
+   
+def char_to_id(charlist, char_dict):
+    idlist = []
+    for i in range(len(charlist)):
+        char = charlist[i].lower()
+        id = char_dict.index(char)
+        idlist.append(id)
+
+    return idlist
+
 
 def preprocess():
     print("loading data...")
@@ -46,6 +61,8 @@ def preprocess():
     return x_train, y_train, vocab_processor, char_dict, x_test, y_test
 
 def train(x_train, y_train, vocab_processor, char_dict, x_test, y_test, model="CNN"):
+    vocab_dict = vocab_processor.vocabulary_._mapping
+    sorted_vocab = sorted(vocab_dict.items(), key = lambda x : x[1])
     config = tf.ConfigProto(allow_soft_placement=FLAGS.allow_soft_placement, log_device_placement=FLAGS.log_device_placement)
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
@@ -194,9 +211,9 @@ def main(argv=None):
     x_train, y_train, vocab_processor, char_dict, x_test, y_test = preprocess()
     train(x_train, y_train, vocab_processor, char_dict, x_test, y_test)
 
-#if __name__ == '__main__':
-   # tf.app.run()
-
+if __name__ == '__main__':
+    tf.app.run()
+'''
 x_train, y_train, vocab_processor, char_dict, x_test, y_test = preprocess()
 model = sequenceRNN(
                 sequence_length=x_train.shape[1],
@@ -221,19 +238,5 @@ for batch in batches:
         x_word_ids.append(ids)
     print(x_word_ids)
     break
+'''
 
-
-def pad_infinite(iterable, padding=None):
-   return chain(iterable, repeat(padding))
-
-def pad(iterable, size, padding=None):
-   return islice(pad_infinite(iterable, padding), size)
-   
-def char_to_id(charlist, char_dict):
-    idlist = []
-    for i in range(len(charlist)):
-        char = charlist[i].lower()
-        id = char_dict.index(char)
-        idlist.append(id)
-
-    return idlist
