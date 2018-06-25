@@ -317,7 +317,26 @@ Word embedding + Character embedding을 Concat한 것을 바탕으로, LSTM Cell
 
 ![](D:\git\nlp-sentence-classify\report\yoonkim_table2.PNG)
 
+## 훈련 - 평가 방법
+
+- train.py에 있는 train 함수로 이동.
+- 함수 기본 argument에서 sentence classification model을 CNN으로 할지 RNN으로 할지 결정 가능.
+- 선택한 후 train.py를 실행시켜서 학습을 진행.
+- 100번의 학습마다 cross validation의 evaluation data를 바탕으로 accuracy를 측정할 것임.
+- runs 폴더 안에 있는 폴더의 이름을 확인. 어떤 번호가 원하는 모델인지를 기억.
+- eval.py에 있는 checkpoint_dir을 "./runs/(기억한 번호)/checkpoints/"로 변경.
+- eval.py를 실행하면 MR 데이터에서 랜덤으로 batch를 뽑아서 evaluate를 진행할 것임.
+  - 이 때 쓰인 예제와 예측 라벨은 prediction.csv에 기록됨
+
 # 실험 결과 및 분석
+
+
+
+CharCNN - CNN 모델을 Evaluate 해 본 결과
+
+
+
+CharCNN - RNN 모델을 Evaluate 해 본 결과
 
 
 
