@@ -1,3 +1,9 @@
+# 조원
+
+* 2014210073 이종민
+* 2015410050 김민규
+* 2013210026 정승원
+
 # 목차
 
 1. [서론](#서론)
@@ -81,7 +87,7 @@ char_embeddings = tf.nn.embedding_lookup(W,char_ids)
 s_charemb=tf.shape(char_embeddings)
 ```
 
-단어에 포함된 문자들에 인덱스를 매긴다. 단순 lookup 테이블로 랜덤 초기화한다. 문자의 embedding size는 6, filter window는 4이다.
+단어에 포함된 문자들에 인덱스를 매긴 후 단순 lookup 테이블로 랜덤 초기화한다. 문자의 embedding size는 6으로 설정했다.
 
 #### CNN
 
@@ -99,7 +105,7 @@ Pool1 = tf.squeeze(Pool1)
 output = tf.reshape(Pool1, shape = [-1, max_seqence_length, embedding_size_char]) #(batch size, max length of sentence, embeddings size)
 ```
 
-문자들의 id로 이루어진 vector를 convolution layer에 넣고 output을 max pooling 하여 얻은 결과를 embedded vector로 사용한다.
+임베딩 된 character vector를 convolution layer에 넣고 output을 max pooling 하여 얻은 결과를 embedded word vector로 사용한다. filter window는 4로 설정했다.
 
 ## Classification Layer
 
@@ -111,43 +117,121 @@ output = tf.reshape(Pool1, shape = [-1, max_seqence_length, embedding_size_char]
 
 #### Convolution and Max-Pooling Layers
 
-크기가 다른 필터를 반복적으로 사용하여 vector를 생성하고 이를 하나의 큰 featur vector로 합친다.
+크기가 다른 필터를 반복적으로 사용하여 vector를 생성하고 이를 하나의 큰 feature vector로 합친다.
 
+```python
+pooled_outputs = []
+        for _, filter_size in enumerate(filter_sizes):
+            with tf.name_scope("conv-maxpool-%s" % filter_size):
+                # Convolution Layer
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b")
+                conv = tf.nn.conv2d(
+                    self.embedded_chars_expanded,
+                    W,
+                    strides=[1, 1, 1, 1],
+                    padding="VALID",
+                    name="conv")
+                # Apply nonlinearity
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                # Maxpooling over the outputs
+                pooled = tf.nn.max_pool(
+                    h,
+                    ksize=[1, sequence_length - filter_size + 1, 1, 1],
+                    strides=[1, 1, 1, 1],
+                    padding='VALID',
+                    name="pool")
+                pooled_outputs.append(pooled)
 ```
 
-```
-
-`W`는 filter 행렬이고 `h`는 output에 ReLU 함수를 적용한 결과이다. 모든 vector는 `[batch_size, num_filters_total]` 형태를 갖는 feature vector로 결합된다.
+`W`는 filter 행렬이고 `h`는 output에 ReLU 함수를 적용한 결과이다. 그 후 `h`를 Max-Pooling하여 배열에 저장한다.
 
 #### Dropout Layer
 
-```
-
+```python
+with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
 ```
 
 드롭아웃은 오버피팅을 방지하는 가장 유명한 방법이다. dropout rate를 학습 중에는 0.5, 평가 중에는 1로 비활성화 한다.
 
 #### Scores and Predictions
 
+```python
+# Final (unnormalized) scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters_total, num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+            self.predictions = tf.argmax(self.scores, 1, name="predictions")
 ```
 
-```
-
-max pooling 으로 featur vector를 사용하여 행렬곱을 수행하고 가장 높은 점수로 분류를 선택하는 예측을 수행한다.
+max pooling된 결과를 사용하여 행렬곱(Wx + b)을 수행하고 가장 높은 점수로 분류를 선택하는 예측을 수행한다.
 
 #### Loss and Accuracy
 
-```
+```python
+ # Calculate mean cross-entropy loss
+        with tf.name_scope("loss"):
+            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, 					   labels=self.input_y)
+            self.loss = tf.reduce_mean(losses)
 
+        # Accuracy
+        with tf.name_scope("accuracy"):
+            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
+            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), 					    name="accuracy")
 ```
 
 손실함수는 cross-entropy loss를 사용한다.
 
 ### RNN for Sentence Classification
 
-<img src="D:\git\nlp-sentence-classify\report\rnn_sc.png" width="500" />
+Character-level embedding 결과 벡터를 LSTM의 input으로 활용하여 그  output으로 분류를 수행한다. LSTM의 output은 3차원 Vector([batch_size, hidden_size] ) 이며, 가장 값이 큰 요소를 결과로서 출력한다.
 
-Character-level embeding 결과 벡터를 Bi-directional LSTM의 input으로 활용하여 그  output으로 분류를 수행한다. LSTM의 output은 3차원 Vector([neut, neg, pos] ) 이며, 가장 값이 큰 요소를 결과로서 출력한다.
+#### LSTM
+
+```python
+with tf.name_scope("LSTM"):
+            cell = tf.contrib.rnn.BasicLSTMCell(num_units=hidden_size, state_is_tuple=True, 			name="1st_Cell")
+            cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.dropout_keep_prob)
+            outputs, _ = tf.nn.dynamic_rnn(cell, self.final_embed, sequence_length=text_length, 			dtype=tf.float32)
+            self.h_outputs = self.last_relevant(outputs, text_length)
+```
+
+Word embedding + Character embedding을 Concat한 것을 바탕으로, LSTM Cell을 만들어서 output을 뽑아낸다. Dropout도 잊지 않는다.
+
+#### Scores and Predictions
+
+```python
+# Final scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable("W", shape=[hidden_size, num_classes], 								   initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+            self.logits = tf.nn.xw_plus_b(self.h_outputs, W, b, name="logits")
+            self.predictions = tf.argmax(self.logits, 1, name="predictions")
+```
+
+`[batch_size, hidden_size]`만큼 나온 결과를 사용하여 행렬곱(`Wx + b`)을 수행하고 가장 높은 점수로 분류를 선택하는 예측을 수행한다.
+
+#### Loss and Accuracy
+
+```python
+# Calculate mean cross-entropy loss
+        with tf.name_scope("loss"):
+            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, 						labels=self.input_y)
+            self.loss = tf.reduce_mean(losses)
+
+        # Accuracy
+        with tf.name_scope("accuracy"):
+            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, axis=1))
+            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), 					name="accuracy")
+```
+
+손실함수는 cross-entropy loss를 사용한다.
 
 ## Hyper Parameters
 
